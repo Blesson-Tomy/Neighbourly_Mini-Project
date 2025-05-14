@@ -9,9 +9,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 // final config = Config();
-String apiKey = 'AIzaSyCGeJBG4e82liskoLF4cqY-vDXz1wJUexQ';  //config.apiKey;
+String apiKey = 'APIKEY'; //config.apiKey;
 
-const String geminiEndpoint = 'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent';
+const String geminiEndpoint =
+    'https://generativelanguage.googleapis.com/v1/models/gemini-1.5-pro:generateContent';
 
 class VolRequestsPage extends StatefulWidget {
   const VolRequestsPage({super.key});
@@ -21,7 +22,8 @@ class VolRequestsPage extends StatefulWidget {
 }
 
 class RequestsPageState extends State<VolRequestsPage> {
-  final ValueNotifier<List<Map<String, dynamic>>> requestsNotifier = ValueNotifier([]);
+  final ValueNotifier<List<Map<String, dynamic>>> requestsNotifier =
+      ValueNotifier([]);
   final ValueNotifier<bool> isLoadingNotifier = ValueNotifier(true);
   final ValueNotifier<String> errorMessageNotifier = ValueNotifier("");
 
@@ -47,77 +49,81 @@ class RequestsPageState extends State<VolRequestsPage> {
     }
 
     try {
-        final prefs = await SharedPreferences.getInstance();
-  String? neighbourhoodId = prefs.getString('neighbourhoodId') ?? "";
-  List<String> selectedServices = prefs.getStringList('services') ?? [];
-  String? userId = prefs.getString('userId') ?? "";
-  // Fetch neighbourhood-matching requests
-  QuerySnapshot querySnapshot1 = await FirebaseFirestore.instance
-      .collection('current_requests')
-      .where('neighbourhood', isEqualTo: neighbourhoodId)
-      .get();
+      final prefs = await SharedPreferences.getInstance();
+      String? neighbourhoodId = prefs.getString('neighbourhoodId') ?? "";
+      List<String> selectedServices = prefs.getStringList('services') ?? [];
+      String? userId = prefs.getString('userId') ?? "";
+      // Fetch neighbourhood-matching requests
+      QuerySnapshot querySnapshot1 =
+          await FirebaseFirestore.instance
+              .collection('current_requests')
+              .where('neighbourhood', isEqualTo: neighbourhoodId)
+              .get();
 
-  // Fetch priority list-matching requests
-  QuerySnapshot querySnapshot2 = await FirebaseFirestore.instance
-      .collection('current_requests')
-      .where('priority', arrayContains: userId)
-      .get();
+      // Fetch priority list-matching requests
+      QuerySnapshot querySnapshot2 =
+          await FirebaseFirestore.instance
+              .collection('current_requests')
+              .where('priority', arrayContains: userId)
+              .get();
 
-  // Use a Set to track unique document IDs
-  Set<String> documentIds = {};
-  List<Map<String, dynamic>> fetchedRequests = [];
+      // Use a Set to track unique document IDs
+      Set<String> documentIds = {};
+      List<Map<String, dynamic>> fetchedRequests = [];
 
-  // Add documents from the first query
-  for (var doc in querySnapshot1.docs) {
-    if (documentIds.add(doc.id)) { // Ensures uniqueness
-      final data = doc.data() as Map<String, dynamic>;
-      data['id'] = doc.id;
-      fetchedRequests.add(data);
-    }
-  }
+      // Add documents from the first query
+      for (var doc in querySnapshot1.docs) {
+        if (documentIds.add(doc.id)) {
+          // Ensures uniqueness
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          fetchedRequests.add(data);
+        }
+      }
 
-  // Add documents from the second query (avoiding duplicates)
-  for (var doc in querySnapshot2.docs) {
-    if (documentIds.add(doc.id)) { // Ensures uniqueness
-      final data = doc.data() as Map<String, dynamic>;
-      data['id'] = doc.id;
-      fetchedRequests.add(data);
-    }
-  }
+      // Add documents from the second query (avoiding duplicates)
+      for (var doc in querySnapshot2.docs) {
+        if (documentIds.add(doc.id)) {
+          // Ensures uniqueness
+          final data = doc.data() as Map<String, dynamic>;
+          data['id'] = doc.id;
+          fetchedRequests.add(data);
+        }
+      }
 
-  // fetchedRequests.where((doc) {
-  //   final data = doc.data() as Map<String, dynamic>;
-  //   return selectedServices.contains(data['requestType']);
-  // });
+      // fetchedRequests.where((doc) {
+      //   final data = doc.data() as Map<String, dynamic>;
+      //   return selectedServices.contains(data['requestType']);
+      // });
 
-  fetchedRequests = fetchedRequests
-    .where((doc) => selectedServices.contains(doc['requestType']))
-    .toList();
+      fetchedRequests =
+          fetchedRequests
+              .where((doc) => selectedServices.contains(doc['requestType']))
+              .toList();
 
-  fetchedRequests = fetchedRequests
-    .where((doc) => selectedServices.contains(doc['requestType']) &&
-                    (doc['volunteerId'] == "" || doc['volunteerId'] == userId))
-    .toList();
+      fetchedRequests =
+          fetchedRequests
+              .where(
+                (doc) =>
+                    selectedServices.contains(doc['requestType']) &&
+                    (doc['volunteerId'] == "" || doc['volunteerId'] == userId),
+              )
+              .toList();
 
+      // Sort by timestamp (newest first)
+      fetchedRequests.sort((a, b) {
+        final timestampA = a['timestamp'] ?? 0;
+        final timestampB = b['timestamp'] ?? 0;
+        return timestampB.compareTo(timestampA);
+      });
 
-
-  // Sort by timestamp (newest first)
-  fetchedRequests.sort((a, b) {
-    final timestampA = a['timestamp'] ?? 0;
-    final timestampB = b['timestamp'] ?? 0;
-    return timestampB.compareTo(timestampA);
-  });
-
-  // Update UI
-  requestsNotifier.value = fetchedRequests;
-  errorMessageNotifier.value = fetchedRequests.isEmpty ? "No new requests." : "success";
-} catch (e) {
-  errorMessageNotifier.value = "An error occurred. Try again later.";
-}
-
-
-
-    finally {
+      // Update UI
+      requestsNotifier.value = fetchedRequests;
+      errorMessageNotifier.value =
+          fetchedRequests.isEmpty ? "No new requests." : "success";
+    } catch (e) {
+      errorMessageNotifier.value = "An error occurred. Try again later.";
+    } finally {
       isLoadingNotifier.value = false;
     }
   }
@@ -145,48 +151,66 @@ class RequestsPageState extends State<VolRequestsPage> {
                 builder: (context, isLoading, _) {
                   return isLoading
                       ? const Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        child: CircularProgressIndicator(
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
                           ),
-                        )
+                        ),
+                      )
                       : ValueListenableBuilder<String>(
-                          valueListenable: errorMessageNotifier,
-                          builder: (context, errorMessage, _) {
-                            return errorMessage == "success"
-                                ? ValueListenableBuilder<List<Map<String, dynamic>>>(
-                                    valueListenable: requestsNotifier,
-                                    builder: (context, requests, _) {
-                                      return Padding(
-                                        padding: const EdgeInsets.fromLTRB(6, 0, 6, 4),
-                                        child: Column(
-                                          children: requests.map((request) {
-                                            return RequestBox(request: request, onRefresh: fetchAllRequests,);
+                        valueListenable: errorMessageNotifier,
+                        builder: (context, errorMessage, _) {
+                          return errorMessage == "success"
+                              ? ValueListenableBuilder<
+                                List<Map<String, dynamic>>
+                              >(
+                                valueListenable: requestsNotifier,
+                                builder: (context, requests, _) {
+                                  return Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      6,
+                                      0,
+                                      6,
+                                      4,
+                                    ),
+                                    child: Column(
+                                      children:
+                                          requests.map((request) {
+                                            return RequestBox(
+                                              request: request,
+                                              onRefresh: fetchAllRequests,
+                                            );
                                           }).toList(),
-                                        ),
-                                      );
-                                    },
-                                  )
-                                : Center(
-                                    child: Container(
-                                      margin: const EdgeInsets.fromLTRB(10, 0, 10, 0),
-                                      width: double.infinity,
-                                      decoration: BoxDecoration(
-                                        color: Styles.mildPurple,
-                                        borderRadius: BorderRadius.circular(20),
-                                      ),
-                                      padding: const EdgeInsets.all(16),
-                                      child: Text(
-                                        errorMessage,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
                                     ),
                                   );
-                          },
-                        );
+                                },
+                              )
+                              : Center(
+                                child: Container(
+                                  margin: const EdgeInsets.fromLTRB(
+                                    10,
+                                    0,
+                                    10,
+                                    0,
+                                  ),
+                                  width: double.infinity,
+                                  decoration: BoxDecoration(
+                                    color: Styles.mildPurple,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: const EdgeInsets.all(16),
+                                  child: Text(
+                                    errorMessage,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              );
+                        },
+                      );
                 },
               ),
             ],
@@ -236,8 +260,8 @@ class _RequestBoxState extends State<RequestBox> {
     final headers = {'Content-Type': 'application/json'};
 
     try {
-      
-      if (widget.request['tags'] is List && (widget.request['tags'] as List).isNotEmpty) {
+      if (widget.request['tags'] is List &&
+          (widget.request['tags'] as List).isNotEmpty) {
         return List<String>.from(widget.request['tags']);
       }
 
@@ -258,8 +282,8 @@ class _RequestBoxState extends State<RequestBox> {
 
         if (keywords.isNotEmpty) {
           final userDocRef = FirebaseFirestore.instance
-          .collection("current_requests")
-          .doc(widget.request["id"]);
+              .collection("current_requests")
+              .doc(widget.request["id"]);
           await userDocRef.set({'tags': keywords}, SetOptions(merge: true));
         }
         return keywords.map((keyword) => keyword.trim()).toList();
@@ -326,14 +350,14 @@ class _RequestBoxState extends State<RequestBox> {
                   const SizedBox(height: 8),
                   _buildPillsRow(["Time: $time", "Date: $date"]),
                   const SizedBox(height: 8),
-                  _buildPillsRow([
-                    "Amount: $amount",
-                    status,
-                  ], statusColor: status == "Accepted" 
-                      ? Colors.green[500]! 
-                      : status == "Pending Rating" 
-                          ? Colors.blue[300]! 
-                          : Colors.orange[600]!,
+                  _buildPillsRow(
+                    ["Amount: $amount", status],
+                    statusColor:
+                        status == "Accepted"
+                            ? Colors.green[500]!
+                            : status == "Pending Rating"
+                            ? Colors.blue[300]!
+                            : Colors.orange[600]!,
                   ),
                   const SizedBox(height: 4),
                   const Divider(color: Colors.white, thickness: 1),
@@ -378,10 +402,14 @@ class _RequestBoxState extends State<RequestBox> {
       alignment: WrapAlignment.start,
       spacing: 5,
       runSpacing: 5,
-      children: pills.map((pill) {
-        final isStatus = pill == pills.last && statusColor != null;
-        return Styles.buildPill(pill, isStatus ? statusColor : Styles.mildPurple);
-      }).toList(),
+      children:
+          pills.map((pill) {
+            final isStatus = pill == pills.last && statusColor != null;
+            return Styles.buildPill(
+              pill,
+              isStatus ? statusColor : Styles.mildPurple,
+            );
+          }).toList(),
     );
   }
 
@@ -391,12 +419,12 @@ class _RequestBoxState extends State<RequestBox> {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 4.0),
           child: SizedBox(
-        height: 15,
-        width: 15,
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-          strokeWidth: 2,
-        ),
+            height: 15,
+            width: 15,
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              strokeWidth: 2,
+            ),
           ),
         ),
       );
@@ -410,7 +438,9 @@ class _RequestBoxState extends State<RequestBox> {
             "AI tags:",
             style: TextStyle(color: Colors.white, fontSize: 16),
           ),
-          ...keywords!.map((keyword) => Styles.buildPill(keyword.trim(), Styles.mildPurple)),
+          ...keywords!.map(
+            (keyword) => Styles.buildPill(keyword.trim(), Styles.mildPurple),
+          ),
         ],
       );
     } else {
